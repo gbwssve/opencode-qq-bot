@@ -14,6 +14,7 @@
 </div>
 
 ---
+龙虾都能用了,那opencode也要接上
 
 ## 功能特性
 
@@ -52,7 +53,7 @@ openqq
 首次运行，需要配置 QQ 机器人凭证
 (从 https://q.qq.com 机器人管理 -> 开发设置 获取)
 
-QQ App ID: 102935014
+QQ App ID: 1029******
 QQ App Secret: ********
 配置已保存到 ~/.openqq/.env
 ```
@@ -102,9 +103,9 @@ echo "OPENCODE_BASE_URL=http://localhost:4096" >> ~/.openqq/.env
 
 ### 1. 注册 QQ 开放平台
 
-前往 [QQ 开放平台](https://q.qq.com) 注册账号（不能直接用个人 QQ 登录，需要单独注册）。
+前往 [QQ 开放平台](https://q.qq.com/qqbot/openclaw/) 注册账号。
 
-注册后需要设置超级管理员，按提示用手机 QQ 扫码完成实名认证。
+
 
 ### 2. 创建机器人
 
