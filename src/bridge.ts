@@ -10,6 +10,7 @@ import { EventRouter } from "./opencode/events.js"
 import { SessionManager } from "./opencode/sessions.js"
 import type { Event } from "@opencode-ai/sdk"
 import {
+  buildHelpText,
   handleCommand,
   handlePendingSelection,
   isCommand,
@@ -38,6 +39,7 @@ export function createBridge(
   sessions: SessionManager,
 ): Bridge {
   const busyUsers = new Set<string>()
+  const greeted = new Set<string>()
   const pendingSelections = new Map<string, PendingSelection>()
   const commandContext: CommandContext = {
     config,
@@ -57,6 +59,11 @@ export function createBridge(
       const content = ctx.content.trim()
       if (!content) {
         return
+      }
+
+      if (!greeted.has(ctx.userId)) {
+        greeted.add(ctx.userId)
+        await sendReply(ctx, buildHelpText())
       }
 
       if (isCommand(content)) {

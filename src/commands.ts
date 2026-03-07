@@ -374,7 +374,7 @@ function splitModelId(value: string): { providerId: string; modelId: string } | 
   return { providerId, modelId }
 }
 
-function buildHelpText(): string {
+export function buildHelpText(): string {
   return [
     "可用命令：",
     "/new - 创建新会话",

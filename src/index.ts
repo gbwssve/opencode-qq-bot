@@ -1,7 +1,7 @@
 // @input:  ./config, ./opencode/*, ./qq/*, ./bridge, @opencode-ai/sdk (createOpencodeServer)
 // @output: (side-effect) 启动 Bot 进程
 // @pos:    根层 - 入口: 启动编排 + 优雅关闭
-import { loadConfig } from "./config.js"
+import { loadConfig, ensureConfig } from "./config.js"
 import { createClient, healthCheck } from "./opencode/client.js"
 import { EventRouter } from "./opencode/events.js"
 import { SessionManager } from "./opencode/sessions.js"
@@ -10,6 +10,7 @@ import { startBackgroundTokenRefresh, stopBackgroundTokenRefresh } from "./qq/ap
 import { createBridge } from "./bridge.js"
 
 async function main(): Promise<void> {
+  await ensureConfig()
   const config = loadConfig()
 
   let serverClose: (() => void) | null = null
