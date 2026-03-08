@@ -18,7 +18,13 @@ const MAX_RECONNECT_DELAY_MS = 30_000
 const BASE_RECONNECT_DELAY_MS = 1_000
 const INVALID_SESSION_DELAY_MS = 3_000
 const RESUME_RESET_CLOSE_CODES = new Set([4006, 4007, 4009])
-const FATAL_CLOSE_CODES = new Set([4914, 4915])
+// 4914: 机器人已下架，只允许连接沙箱环境
+// 4915: 机器人已封禁，不允许连接
+// 官方文档: https://bot.q.qq.com/wiki/develop/api-v2/dev-prepare/error-trace/websocket.html
+const FATAL_CLOSE_CODES: Record<number, string> = {
+  4914: "机器人已下架，只允许连接沙箱环境，请在 QQ 开放平台检查机器人状态",
+  4915: "机器人已封禁，不允许连接，请在 QQ 开放平台申请解封",
+}
 
 export type MessageHandler = (msg: MessageContext) => Promise<void>
 
@@ -369,8 +375,9 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayCont
           state.accessToken = null
         }
 
-        if (FATAL_CLOSE_CODES.has(code)) {
-          return
+        if (code in FATAL_CLOSE_CODES) {
+          console.error(`[qq-gateway] 致命错误 (${code}): ${FATAL_CLOSE_CODES[code]}`)
+          process.exit(1)
         }
 
         scheduleReconnect(state, connect)
