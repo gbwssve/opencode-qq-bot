@@ -1,7 +1,7 @@
 // @input:  ./api (sendC2CMessage, sendGroupMessage), ./types (MessageContext)
 // @output: replyToQQ, formatForQQ, splitMessage
 // @pos:    qq层 - 消息发送 (Markdown格式化 + 分割 + 被动回复)
-import { sendC2CMessage, sendGroupMessage, getNextMsgSeq } from "./api.js"
+import { sendC2CMessage, sendGroupMessage, getNextMsgSeq } from "./messages.js"
 import type { MessageContext } from "./types.js"
 
 const DEFAULT_MAX_LENGTH = 3000

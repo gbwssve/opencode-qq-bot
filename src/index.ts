@@ -6,7 +6,7 @@ import { createClient, healthCheck } from "./opencode/client.js"
 import { EventRouter } from "./opencode/events.js"
 import { SessionManager } from "./opencode/sessions.js"
 import { startGateway } from "./qq/gateway.js"
-import { startBackgroundTokenRefresh, stopBackgroundTokenRefresh } from "./qq/api.js"
+import { startBackgroundTokenRefresh, stopBackgroundTokenRefresh } from "./qq/token.js"
 import { createBridge } from "./bridge.js"
 
 async function main(): Promise<void> {

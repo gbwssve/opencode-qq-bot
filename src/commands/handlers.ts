@@ -1,136 +1,15 @@
-import type { Config } from "./config.js"
-import type { MessageContext } from "./qq/types.js"
-import type { OpencodeClient } from "./opencode/client.js"
-import { SessionManager } from "./opencode/sessions.js"
+import type { MessageContext } from "../qq/types.js"
+import type { CommandContext } from "./types.js"
+import { SELECTION_TTL_MS } from "./types.js"
 import {
   abortSession,
   listProviderModels,
   listAgents as adapterListAgents,
   updateSessionTitle,
   healthCheck,
-} from "./opencode/adapter.js"
+} from "../opencode/adapter.js"
 
-const SELECTION_TTL_MS = 60_000
-
-export interface CommandContext {
-  config: Config
-  client: OpencodeClient
-  sessions: SessionManager
-  getAccessToken: () => Promise<string>
-  pendingSelections: Map<string, PendingSelection>
-}
-
-export interface PendingSelection {
-  type: "session" | "model"
-  items: Array<{ id: string; label: string }>
-  expiresAt: number
-}
-
-interface ParsedCommand {
-  name: string
-  args: string
-}
-
-const SHORT_ALIASES: Record<string, string> = {
-  nw: "new",
-  st: "stop",
-  ss: "status",
-  sn: "sessions",
-  hp: "help",
-  md: "model",
-  ag: "agent",
-  rn: "rename",
-}
-
-export function isCommand(content: string): boolean {
-  const trimmed = content.trim()
-  if (trimmed.startsWith("/")) return true
-  const firstToken = trimmed.split(/\s+/)[0]?.toLowerCase()
-  return firstToken !== undefined && firstToken in SHORT_ALIASES
-}
-
-export async function handleCommand(ctx: MessageContext, cmdCtx: CommandContext): Promise<string> {
-  cmdCtx.pendingSelections.delete(ctx.userId)
-
-  const parsed = parseCommand(ctx.content)
-  if (!parsed) {
-    return "不是有效命令"
-  }
-
-  switch (parsed.name) {
-    case "new":
-      return handleNew(ctx, cmdCtx)
-    case "stop":
-      return handleStop(ctx, cmdCtx)
-    case "status":
-      return handleStatus(ctx, cmdCtx)
-    case "sessions":
-      return handleSessions(ctx, cmdCtx)
-    case "help":
-      return buildHelpText()
-    case "model":
-      return handleModel(ctx, parsed.args, cmdCtx)
-    case "agent":
-      return handleAgent(ctx, parsed.args, cmdCtx)
-    case "rename":
-      return handleRename(ctx, parsed.args, cmdCtx)
-    default:
-      return `不支持的命令：${parsed.name}\n发送 hp 或 /help 查看可用命令`
-  }
-}
-
-export async function handlePendingSelection(
-  userId: string,
-  selection: number,
-  cmdCtx: CommandContext,
-): Promise<string | null> {
-  const pending = cmdCtx.pendingSelections.get(userId)
-  if (!pending) return null
-
-  if (pending.expiresAt <= Date.now()) {
-    cmdCtx.pendingSelections.delete(userId)
-    return null
-  }
-
-  const item = pending.items[selection - 1]
-  if (!item) {
-    return `序号无效，请回复 1-${pending.items.length}`
-  }
-
-  cmdCtx.pendingSelections.delete(userId)
-
-  if (pending.type === "session") {
-    cmdCtx.sessions.switchSession(userId, item.id, item.label)
-    return `已切换到会话：${item.label}`
-  }
-
-  const model = splitModelId(item.id)
-  if (!model) {
-    return `模型项无效：${item.label}`
-  }
-
-  await ensureSession(userId, cmdCtx)
-  cmdCtx.sessions.setModel(userId, model.providerId, model.modelId)
-  return `已切换模型：${item.label}`
-}
-
-function parseCommand(content: string): ParsedCommand | null {
-  const trimmed = content.trim()
-
-  if (trimmed.startsWith("/")) {
-    const [rawName, ...rest] = trimmed.slice(1).split(/\s+/)
-    const name = rawName?.toLowerCase()
-    if (!name) return null
-    return { name, args: rest.join(" ").trim() }
-  }
-
-  const [firstToken, ...rest] = trimmed.split(/\s+/)
-  const alias = firstToken?.toLowerCase()
-  if (!alias || !(alias in SHORT_ALIASES)) return null
-  return { name: SHORT_ALIASES[alias], args: rest.join(" ").trim() }
-}
-
-async function handleNew(ctx: MessageContext, cmdCtx: CommandContext): Promise<string> {
+export async function handleNew(ctx: MessageContext, cmdCtx: CommandContext): Promise<string> {
   const session = await cmdCtx.sessions.createNew(ctx.userId)
   return [
     "已创建新会话",
@@ -139,7 +18,7 @@ async function handleNew(ctx: MessageContext, cmdCtx: CommandContext): Promise<s
   ].join("\n")
 }
 
-async function handleStop(ctx: MessageContext, cmdCtx: CommandContext): Promise<string> {
+export async function handleStop(ctx: MessageContext, cmdCtx: CommandContext): Promise<string> {
   const session = cmdCtx.sessions.getSession(ctx.userId)
   if (!session) {
     return "当前还没有会话可停止"
@@ -149,7 +28,7 @@ async function handleStop(ctx: MessageContext, cmdCtx: CommandContext): Promise<
   return `已发送停止请求：${session.title ?? session.sessionId}`
 }
 
-async function handleStatus(ctx: MessageContext, cmdCtx: CommandContext): Promise<string> {
+export async function handleStatus(ctx: MessageContext, cmdCtx: CommandContext): Promise<string> {
   const session = cmdCtx.sessions.getSession(ctx.userId)
   const { providerId, modelId } = cmdCtx.sessions.getModel(ctx.userId)
   const agentId = cmdCtx.sessions.getAgent(ctx.userId)
@@ -180,7 +59,7 @@ async function handleStatus(ctx: MessageContext, cmdCtx: CommandContext): Promis
   ].join("\n")
 }
 
-async function handleSessions(ctx: MessageContext, cmdCtx: CommandContext): Promise<string> {
+export async function handleSessions(ctx: MessageContext, cmdCtx: CommandContext): Promise<string> {
   const sessions = cmdCtx.sessions.getUserSessions(ctx.userId)
   if (sessions.length === 0) {
     return "当前没有可切换的历史会话"
@@ -201,7 +80,7 @@ async function handleSessions(ctx: MessageContext, cmdCtx: CommandContext): Prom
   return ["会话列表：", ...lines, "回复序号切换会话（60 秒内有效）"].join("\n")
 }
 
-async function handleModel(ctx: MessageContext, args: string, cmdCtx: CommandContext): Promise<string> {
+export async function handleModel(ctx: MessageContext, args: string, cmdCtx: CommandContext): Promise<string> {
   if (!args) {
     const models = await listProviderModels(cmdCtx.client)
     if (models.length === 0) {
@@ -224,8 +103,26 @@ async function handleModel(ctx: MessageContext, args: string, cmdCtx: CommandCon
   }
 
   if (/^\d+$/.test(args)) {
-    const result = await handlePendingSelection(ctx.userId, Number(args), cmdCtx)
-    return result ?? "没有待选择的模型列表，请先发送 md 或 /model"
+    const pending = cmdCtx.pendingSelections.get(ctx.userId)
+    if (!pending || pending.type !== "model") {
+      return "没有待选择的模型列表，请先发送 md 或 /model"
+    }
+    if (pending.expiresAt <= Date.now()) {
+      return "模型选择已过期，请重新发送 md 或 /model"
+    }
+    const selection = Number(args)
+    const item = pending.items[selection - 1]
+    if (!item) {
+      return `序号无效，请回复 1-${pending.items.length}`
+    }
+    cmdCtx.pendingSelections.delete(ctx.userId)
+    const model = splitModelId(item.id)
+    if (!model) {
+      return `模型项无效：${item.label}`
+    }
+    await ensureSession(ctx.userId, cmdCtx)
+    cmdCtx.sessions.setModel(ctx.userId, model.providerId, model.modelId)
+    return `已切换模型：${item.label}`
   }
 
   const model = splitModelId(args)
@@ -238,7 +135,7 @@ async function handleModel(ctx: MessageContext, args: string, cmdCtx: CommandCon
   return `已切换模型：${model.providerId} / ${model.modelId}`
 }
 
-async function handleAgent(ctx: MessageContext, args: string, cmdCtx: CommandContext): Promise<string> {
+export async function handleAgent(ctx: MessageContext, args: string, cmdCtx: CommandContext): Promise<string> {
   const agents = await adapterListAgents(cmdCtx.client)
   if (!args) {
     if (agents.length === 0) {
@@ -265,7 +162,7 @@ async function handleAgent(ctx: MessageContext, args: string, cmdCtx: CommandCon
   return `已切换 Agent：${matched.id}`
 }
 
-async function handleRename(ctx: MessageContext, args: string, cmdCtx: CommandContext): Promise<string> {
+export async function handleRename(ctx: MessageContext, args: string, cmdCtx: CommandContext): Promise<string> {
   const title = args.trim()
   if (!title) {
     return "用法：rn <新名称>"
@@ -297,18 +194,4 @@ function splitModelId(value: string): { providerId: string; modelId: string } | 
   const modelId = trimmed.slice(slashIndex + 1).trim()
   if (!providerId || !modelId) return null
   return { providerId, modelId }
-}
-
-export function buildHelpText(): string {
-  return [
-    "可用命令（短别名 或 /全称）：",
-    "nw | /new - 创建新会话",
-    "st | /stop - 停止当前 AI 运行",
-    "ss | /status - 查看状态",
-    "sn | /sessions - 历史会话，回复序号切换",
-    "hp | /help - 查看帮助",
-    "md | /model - 列出/切换模型",
-    "ag | /agent - 列出/切换 Agent",
-    "rn | /rename <name> - 重命名会话",
-  ].join("\n")
 }

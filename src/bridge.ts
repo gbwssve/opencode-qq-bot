@@ -1,6 +1,6 @@
 import type { Config } from "./config.js"
 import type { MessageContext } from "./qq/types.js"
-import { getAccessToken } from "./qq/api.js"
+import { getAccessToken } from "./qq/token.js"
 import { replyToQQ } from "./qq/sender.js"
 import type { OpencodeClient } from "./opencode/client.js"
 import { promptAsync } from "./opencode/adapter.js"
@@ -14,7 +14,7 @@ import {
   isCommand,
   type CommandContext,
   type PendingSelection,
-} from "./commands.js"
+} from "./commands/index.js"
 
 const RESPONSE_TIMEOUT_MS = 5 * 60 * 1000
 
